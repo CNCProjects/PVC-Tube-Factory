@@ -1,0 +1,5 @@
+START:
+FP, Lock Clamp.sbp
+FP, XYzero.sbp
+FP, After Lock Clamp.sbp
+Goto START

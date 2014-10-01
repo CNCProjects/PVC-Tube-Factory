@@ -1,0 +1,31 @@
+'Center Point for cam
+'File created: Saturday, September 27, 2014 - 03:41 PM
+'SHOPBOT FILE IN INCHES
+IF %(25)=1 THEN GOTO UNIT_ERROR	'check to see software is set to standard
+C#,90				 	'Lookup offset values
+'
+'Turning router ON
+IF 16000 < 100 Then SO,1,0
+IF 16000 >= 100 Then SO,1,1
+
+PAUSE 2
+'
+'
+'Toolpath Name = Center Point for cam
+'Tool Name   = V-Bit 1/4" 60 degree Milescraft 2214
+MS,2.99,1.99
+JZ,0.500000
+J2,0.000000,5.000000
+J3,1.375000,4.150000,0.200000
+M3,1.375000,4.150000,-1.920000
+J3,1.375000,4.150000,0.200000
+JZ,0.500000
+'
+'Turning router OFF
+SO,1,0
+J2,0.000000,5.000000
+END
+'
+UNIT_ERROR:
+C#,91					'Run file explaining unit error
+END

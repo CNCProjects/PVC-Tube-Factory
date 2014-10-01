@@ -1,0 +1,32 @@
+'Slide Pipe
+'File created: Sunday, September 28, 2014 - 01:08 PM
+'SHOPBOT FILE IN INCHES
+IF %(25)=1 THEN GOTO UNIT_ERROR	'check to see software is set to standard
+C#,90				 	'Lookup offset values
+'
+'Turning router ON
+IF 1 < 100 Then SO,1,0
+IF 1 >= 100 Then SO,1,1
+
+PAUSE 2
+'
+'
+'Toolpath Name = Slide Pipe
+'Tool Name   = V-Bit 1/4" 60 degree Milescraft 2214
+MS,2.99,1.99
+JZ,0.200000
+J2,0.000000,5.000000
+J3,6.125000,0.950000,0.200000
+M3,6.125000,0.950000,-0.100000
+M3,0.125000,0.950000,-0.100000
+J3,0.125000,0.950000,0.200000
+JZ,0.200000
+'
+'Turning router OFF
+SO,1,0
+J2,0.000000,5.000000
+END
+'
+UNIT_ERROR:
+C#,91					'Run file explaining unit error
+END

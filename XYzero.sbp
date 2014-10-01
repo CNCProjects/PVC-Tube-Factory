@@ -1,0 +1,201 @@
+' The following licensing information must accompany this file at all times.
+' ********** Licensing Information **********
+' Copyright 2001 ShopBot Tools
+' We encourage ShopBot users to modify this part file to suit their own needs and have licensed it 
+' under the Creative Commons Atribution 3.0 license.  This license allows you to copy, distribute, 
+' or modify the file with certain restrictions. Any other use requires permission from ShopBot Tools.
+'
+' A simplified explanantion of this license is available at  
+' http://creativecommons.org/licenses/by/3.0/us/ 
+' and the full legal code can be found at 
+' http://creativecommons.org/licenses/by/3.0/us/legalcode
+' We encourage you to read this legal code before modifying or distributing  this file, 
+' ESPECIALLY sections 5 and 6 that cover warranties and liability.
+'
+' If you plan on distributing your new version, you must also state in the header of your file that it
+' is a modification of a file supplied by Shopbot Tools, supply information on finding the original file, 
+' and rename the file to make it clear to the user that it is a modified version. 
+' ********** End Licensing Information **********
+'
+'XYZERO.SBP -- Example File showing how to Zero XY Axes with Proximity Switches
+'Copyright 1998-2005. ShopBot Tools, Inc.
+'----------------------------------------------------------------------------------------
+'*NOTE* This file will always be over-written during software update installations to insure
+'        it is kept standard and current.
+'*NOTE* If you want to make a custom version of this file that is called with the C3 Command
+'        you should save it with a different name, say "XYZERO_Joes_8_23_08.sbp", then change the
+'        C3 Command (found in C:\SbParts\Custom\Custom3.sbc to call your file rather than the
+'        standard file. You may need to update this Custom3.sbc file when you update software.
+'----------------------------------------------------------------------------------------
+'Table Base Coordinates Zeroed During Routine
+'Variables in this file are read from the my_variables.sbc file in c:\Sbparts\Custom
+'Most recent update by ShopBot 12/11; now uses system SafeZ for pull-up (set in [VC])
+
+'Determine whether we are in Preview mode or Move/Cut mode
+   &modenow = %(22)
+   If &modenow = 1 Then GoSub Changemode
+
+'Load the custom variables file loaded by Custom Cut 90 (these are variable generated with Setup Tool)
+   C#,90
+
+'Confirm Spindles OFF
+   SO, 1, 0
+   SO, 2, 0
+
+'Get Speed Limits
+   If %(25) = 0 Then GoSub GetInchSpeedLimits
+   If %(25) = 1 Then GoSub GetMetricSpeedLimits
+
+'Zeroing Offsets were set in either inches or metric, this make sure we handle them correctly
+   &SCALE = 1 'set to a default value for case of working in correct units
+   If &my_units <> %(25) Then GoSub Changeunits
+   &X_dist = (&my_XYzeroOffsetX * &SCALE)
+   &Y_dist = (&my_XYzeroOffsetY * &SCALE)
+
+'----------------------------------------------------------------Read the starting speed values to reset later  
+   &start_XYmove_Speed = %(71)
+   &start_XYjog_Speed = %(76)
+
+   &XYapproach_Speed = &start_XYmove_Speed
+   &XYtempJog_Speed = &start_XYjog_Speed
+   If &XYapproach_Speed > &TopApproachSpeed Then &XYapproach_Speed = &TopApproachSpeed
+   If &XYtempJog_Speed > &TopJogSpeed Then &XYtempJog_Speed = &TopJogSpeed
+
+   VS, &XYapproach_Speed,,,,&XYtempJog_Speed                    '... and assign slower speeds
+'---------------------------------------------------------------------------------------------------------------
+
+                            'This version of XYzero deals with only two possibilities ...
+   &SW2_SwitchType = %(92)  '  If #2 Input is 2, then we have (PRS) normally-closed switches on #2 and #3                  
+                            '  Otherwise, we have a (PRT) with normally-open switches on #3
+
+Check_Switch_StatUS:
+'Check status of current inputs to know if we have to clear switches
+   If &SW2_SwitchType = 2 Then GoTo Check_PRS
+   
+  Check_PRT: 
+    &TrgtHIT = 1
+    &Xtrgt = 3
+    &Ytrgt = 3
+    If %(53) = 1 Then GoTo Getoffprox  
+    GoTo Start_Zeroing
+  Check_PRS: 
+    &TrgtHIT = 0
+    &Xtrgt = 2
+    &Ytrgt = 3
+    If %(53) = 0 Then GoTo Getoffprox  
+    If %(52) = 0 Then GoTo Getoffprox
+
+
+Start_Zeroing:
+   SA     	'Set tool to Absolute mode
+
+'Limits are deactivated here, automatically reset to original state when file ends 
+   VN, 0                    'Deactivate the limit switch functionality on input #3
+   SF, 0                    'Deactivate software limits
+
+' Only move to safe Z position if it's above the current position
+   &zup = %(28)             'Use SafeZ as set with [VC]
+   If %(3) < &zup Then MZ, &zup
+
+'Start Homing in the X axis
+  'First set the contact switch action ... 
+   ON INP(&Xtrgt,&TrgtHIT) GoSub Xcontact   'this is where we'll go on contact with switch 
+
+  'Then start the move in X (just a big negative number ... assumes we'll hit prox switch)
+   JX, &big_move
+  ' ... we return here after handling X homing
+            
+'Start Homing in the Y Axis
+  'First set the contact switch action ... 
+   ON INP(&Ytrgt,&TrgtHIT) GoSub YCONTACT   'this is where we'll go on contact with switch
+
+'Then start the move in Y (just a big negative number ... assumes we'll hit prox switch)
+   JY, &big_move
+  ' ... we return here after handling Y homing
+  ' ... and reset speeds
+   VS, &start_XYmove_Speed,,,,&start_XYjog_Speed
+
+
+'Tool is now Zeroed in X and Y Axis.
+   PAUSE 
+
+   End 	'This END statement causes the program to end here without
+            '  dropping through to subroutines
+
+
+'SUBROUTINES ---------------------------------------------------------------------------
+Xcontact:
+ 'This is our subroutine for action on hitting the switch
+   'We hit the prox switch! 
+     ON INP(&Xtrgt,&TrgtHIT)    'Set switch to nothing to turn off
+       &last_X_touch = %(1)     'Variable saved for debugging ...
+     VA, &X_dist                'Set approx position
+     PAUSE 1
+     JX, &move_off_switch       'Move back out for another pass
+     ON INP(&Xtrgt,&TrgtHIT) GoTo Xagain
+     MX, &small_move
+     End
+  Xagain:
+     ON INP(&Xtrgt,&TrgtHIT)    'Set switch to nothing to turn off
+     VA,&X_dist,,,,,0           '>>>>>Set real position and Zero Table Base Coordinates
+     PAUSE 1
+     JX, 0                      'Jog X to park position (*could put another location here)
+'X Axis now zeroed ...
+     PAUSE 1
+ Return                         'This RETURNs us to the next main file line
+
+Ycontact:
+ 'This is our subroutine for action on hitting the switch
+   'We hit the prox switch! 
+     ON INP(&Ytrgt,&TrgtHIT)    'Set switch to nothing to prevent secondary trigger
+       &last_Y_touch = %(2)     'Variable saved for debugging ...
+     VA,, &Y_dist  'Set position
+     PAUSE 1
+     JY, &move_off_switch       'Move back out for another pass
+     ON INP(&Ytrgt,&TrgtHIT) GoTo Yagain
+     MY, &small_move
+     End
+  Yagain:
+     ON INP(&Ytrgt,&TrgtHIT)    'Set switch to nothing to prevent secondary trigger
+     VA,,&Y_dist,,,,,0          '>>>>>Set real position and Zero Table Base Coordinates
+     PAUSE 1
+     JY, 0                      'Jog Y to park position (*could put another location here)
+'Y Axis now zeroed ...
+     PAUSE 1
+ Return                         'This RETURNs us to the next main file line
+                                'interrupted by the switch
+
+'SPECIAL SUBROUTINES -------------------------------------------------------------------
+Changemode:
+'Tool will not do XY Zeoring in Preview Mode. Quit and change Move/Cut mode ...
+    PAUSE 
+ End                            'Exit program now
+
+Getoffprox:
+'Use Arrow Keys to move Off of Prox Switch (ESC when Clear)
+    PAUSE
+    SK    
+ GoTo Check_Switch_StatUS       'Go Back to Re-check Status
+
+Changeunits:
+'You are using a different unit system (inches/millimeters) than you used when this program was set up. Do you want to change the settings?
+   PAUSE
+   If %(25) = 1 Then &SCALE = 25.4
+   If %(25) = 0 Then &SCALE = 0.03937
+ Return
+
+GetInchSpeedLimits:
+   &TopApproachSpeed = 1.0
+   &TopJogSpeed = 3.5
+   &move_off_switch = 1
+   &big_move = -200
+   &small_move = -10
+ Return
+
+GetMetricSpeedLimits:
+   &TopApproachSpeed = 25.4
+   &TopJogSpeed = 88.9
+   &move_off_switch = 25.4
+   &big_move = -5000
+   &small_move = -250
+ Return
