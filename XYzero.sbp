@@ -95,7 +95,7 @@ Start_Zeroing:
 
 ' Only move to safe Z position if it's above the current position
    &zup = %(28)             'Use SafeZ as set with [VC]
-   If %(3) < &zup Then MZ, &zup
+   If %(3) < &zup Then MZ, 0
 
 'Start Homing in the X axis
   'First set the contact switch action ... 
@@ -117,7 +117,7 @@ Start_Zeroing:
 
 
 'Tool is now Zeroed in X and Y Axis.
-   PAUSE 
+'   PAUSE 
 
    End 	'This END statement causes the program to end here without
             '  dropping through to subroutines
